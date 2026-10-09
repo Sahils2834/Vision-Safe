@@ -1,0 +1,14 @@
+{
+  "model": "weights/ppe_yolo11n.pt",
+  "eval_images": 607,
+  "gt_workers": 8386,
+  "pred_workers": 8079,
+  "scene_compliance_accuracy": 57.5,
+  "worker_detection_accuracy": 96.34,
+  "hybrid_features": [
+    "Spatial Head-Zone Overlap Verification (Top 45% Box Height)",
+    "ByteTrack Optical Worker Continuity",
+    "Dynamic Confidence Calibration (conf=0.35)",
+    "False-Positive Background Filter"
+  ]
+}

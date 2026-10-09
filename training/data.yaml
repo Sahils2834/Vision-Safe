@@ -1,0 +1,7 @@
+# Set this to your dataset root. Expected folders: images/{train,val}, labels/{train,val}
+path: A:/PPE detection system/data/ppe_yolo
+train: images/train
+val: images/val
+names:
+  0: person
+  1: helmet

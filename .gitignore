@@ -1,0 +1,120 @@
+# ==========================================
+# VISION SAFE — PPE DETECTION SYSTEM
+# Root Git Ignore Configuration
+# ==========================================
+
+# ---------- Environment variables and secrets ----------
+.env
+.env.*
+!.env.example
+!.env.template
+*.pem
+*.key
+secrets/
+credentials/
+
+# ---------- Python ----------
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+*.egg-info/
+.eggs/
+build/
+dist/
+
+# ---------- Python virtual environments ----------
+.venv/
+venv/
+env/
+ENV/
+
+# ---------- Node.js / React / Vite ----------
+node_modules/
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+frontend/build/
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+.npm/
+
+# ---------- IDE and editor ----------
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# ---------- Logs and temporary files ----------
+*.log
+logs/
+tmp/
+temp/
+*.tmp
+*.bak
+
+# ---------- Machine learning checkpoints ----------
+# Keep large trained weights locally unless intentionally publishing them.
+*.pt
+*.pth
+*.onnx
+*.weights
+*.engine
+*.tflite
+
+# ---------- Training outputs and experiment artifacts ----------
+runs/
+wandb/
+mlruns/
+lightning_logs/
+tensorboard/
+checkpoints/
+experiments/
+training/logs/
+training/checkpoints/
+training/outputs/
+
+# Preserve useful evaluation summaries and documentation.
+!baseline_results.json
+!training/baseline_results.json
+!training/evaluation_results.json
+!training/hybrid_evaluation_results.json
+
+# ---------- Dataset uploads and generated results ----------
+data/uploads/
+data/outputs/
+data/processed/
+data/cache/
+backend/storage/uploads/
+backend/storage/results/
+
+# ---------- Optional local datasets ----------
+# Uncomment these ONLY if the dataset should remain local.
+# data/raw/
+# datasets/
+# Safety-Helmet-Wearing-Dataset-master/
+
+# ---------- Generated reports and exports ----------
+*.csv.tmp
+*.xlsx.tmp
+*.pdf.tmp
+
+# ---------- Local databases ----------
+*.sqlite
+*.sqlite3
+*.db
+
+# ---------- OS files ----------
+.DS_Store
+Thumbs.db
+Desktop.ini

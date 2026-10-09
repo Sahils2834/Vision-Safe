@@ -1,0 +1,22 @@
+{
+  "weights/ppe_yolo11n.pt": {
+    "model": "weights/ppe_yolo11n.pt",
+    "mAP50": 0.8814,
+    "mAP50_95": 0.5318,
+    "precision": 0.8971,
+    "recall": 0.8176,
+    "f1_score": 0.8555,
+    "class_metrics": {
+      "person": {
+        "precision": 0.8887,
+        "recall": 0.7986,
+        "f1_score": 0.8412
+      },
+      "helmet": {
+        "precision": 0.9055,
+        "recall": 0.8365,
+        "f1_score": 0.8696
+      }
+    }
+  }
+}
