@@ -10,7 +10,7 @@ import cv2
 import numpy as np
 from fastapi import FastAPI, File, HTTPException, UploadFile, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import Response
+from fastapi.responses import Response, StreamingResponse
 
 from .config import get_settings
 from .monitor import PPEMonitor
@@ -24,7 +24,8 @@ from .schemas import (
     VideoAnalysisResponse,
     VideoFrameAudit,
     WorkerItem,
-    HelmetItem
+    HelmetItem,
+    PPEItem
 )
 from .streams import StreamManager
 
@@ -137,10 +138,21 @@ def frame(stream_id: str):
     stream = streams.streams.get(stream_id)
     if not stream:
         raise HTTPException(404, "Stream not found")
-    jpeg = stream.jpeg()
+    jpeg = stream.jpeg(timeout=2.0)
     if not jpeg:
         raise HTTPException(404, "Frame is not ready")
     return Response(jpeg, media_type="image/jpeg", headers={"Cache-Control": "no-store"})
+
+@app.get("/streams/{stream_id}/mjpeg")
+def stream_mjpeg(stream_id: str):
+    stream = streams.streams.get(stream_id)
+    if not stream:
+        raise HTTPException(404, "Stream not found")
+    return StreamingResponse(
+        stream.iter_mjpeg(),
+        media_type="multipart/x-mixed-replace; boundary=frame",
+        headers={"Cache-Control": "no-cache, no-store, must-revalidate", "Pragma": "no-cache"}
+    )
 
 @app.post("/streams/{stream_id}/stop")
 def stop(stream_id: str):
@@ -177,12 +189,40 @@ async def diagnose_image(
     # Annotate image
     annotated = image.copy()
     
-    # Draw helmets
+    # Draw helmets (Cyan/Gold)
     for h in diag["helmets"]:
         hx1, hy1, hx2, hy2 = map(int, h["box"])
         cv2.rectangle(annotated, (hx1, hy1), (hx2, hy2), (255, 230, 0), 2)
         cv2.putText(annotated, f"Helmet {h['confidence']:.2f}", (hx1, max(14, hy1 - 4)),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 230, 0), 1, cv2.LINE_AA)
+
+    # Draw gloves (Neon Amber/Orange)
+    for g in diag.get("gloves", []):
+        gx1, gy1, gx2, gy2 = map(int, g["box"])
+        cv2.rectangle(annotated, (gx1, gy1), (gx2, gy2), (0, 140, 255), 2)
+        cv2.putText(annotated, f"Gloves {g['confidence']:.2f}", (gx1, max(14, gy1 - 4)),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 140, 255), 1, cv2.LINE_AA)
+
+    # Draw vests (High-Vis Neon Lime)
+    for v in diag.get("vests", []):
+        vx1, vy1, vx2, vy2 = map(int, v["box"])
+        cv2.rectangle(annotated, (vx1, vy1), (vx2, vy2), (0, 240, 255), 2)
+        cv2.putText(annotated, f"Vest {v['confidence']:.2f}", (vx1, max(14, vy1 - 4)),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 240, 255), 1, cv2.LINE_AA)
+
+    # Draw boots (Sky Blue)
+    for b in diag.get("boots", []):
+        bx1, by1, bx2, by2 = map(int, b["box"])
+        cv2.rectangle(annotated, (bx1, by1), (bx2, by2), (255, 180, 0), 2)
+        cv2.putText(annotated, f"Boots {b['confidence']:.2f}", (bx1, max(14, by1 - 4)),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 180, 0), 1, cv2.LINE_AA)
+
+    # Draw goggles (Neon Violet)
+    for gg in diag.get("goggles", []):
+        gx1, gy1, gx2, gy2 = map(int, gg["box"])
+        cv2.rectangle(annotated, (gx1, gy1), (gx2, gy2), (255, 50, 200), 2)
+        cv2.putText(annotated, f"Goggles {gg['confidence']:.2f}", (gx1, max(14, gy1 - 4)),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 50, 200), 1, cv2.LINE_AA)
 
     # Draw workers
     for w in diag["workers"]:
@@ -195,11 +235,23 @@ async def diagnose_image(
         hx1, hy1, hx2, hy2 = map(int, w["head_zone"])
         cv2.rectangle(annotated, (hx1, hy1), (hx2, hy2), (200, 200, 200), 1, cv2.LINE_AA)
         
-        label = f"Worker #{w['id']} - {'SAFE' if is_safe else 'NO HELMET'}"
-        (tw, th), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 2)
+        # Badges for PPE
+        detected = []
+        if w.get("has_helmet"): detected.append("H")
+        if w.get("has_gloves"): detected.append("G")
+        if w.get("has_vest"): detected.append("V")
+        if w.get("has_boots"): detected.append("B")
+        badge = "+".join(detected) if detected else "NONE"
+        
+        missing = w.get("missing_ppe", [])
+        if is_safe or not missing:
+            label = f"Worker #{w['id']} - SAFE [{badge}]"
+        else:
+            label = f"Worker #{w['id']} - MISSING: {', '.join(missing).upper()} [{badge}]"
+        (tw, th), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.48, 2)
         cv2.rectangle(annotated, (x1, max(0, y1 - th - 10)), (x1 + tw + 12, y1), color, -1)
         cv2.putText(annotated, label, (x1 + 6, max(th + 2, y1 - 4)),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0) if is_safe else (255, 255, 255), 2, cv2.LINE_AA)
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.48, (0, 0, 0) if is_safe else (255, 255, 255), 2, cv2.LINE_AA)
 
     _, buffer = cv2.imencode(".jpg", annotated, [cv2.IMWRITE_JPEG_QUALITY, 90])
     b64_image = base64.b64encode(buffer).decode("utf-8")
@@ -209,6 +261,11 @@ async def diagnose_image(
         active_model=active_key,
         workers=[WorkerItem(**w) for w in diag["workers"]],
         helmets=[HelmetItem(**h) for h in diag["helmets"]],
+        gloves=[PPEItem(**g) for g in diag.get("gloves", [])],
+        vests=[PPEItem(**v) for v in diag.get("vests", [])],
+        boots=[PPEItem(**b) for b in diag.get("boots", [])],
+        goggles=[PPEItem(**gg) for gg in diag.get("goggles", [])],
+        all_ppe=[PPEItem(**p) for p in diag.get("all_ppe", [])],
         safe_workers_count=diag["safe_workers_count"],
         total_workers_count=diag["total_workers_count"],
         violation_count=diag["violation_count"],

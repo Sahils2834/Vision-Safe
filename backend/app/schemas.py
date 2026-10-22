@@ -34,9 +34,18 @@ class WorkerItem(BaseModel):
     confidence: float
     head_zone: List[float]
     is_safe: bool
-    has_helmet: bool
-    helmet_confidence: float
+    has_helmet: bool = False
+    helmet_confidence: float = 0.0
     matched_helmet_box: Optional[List[float]] = None
+    has_gloves: bool = False
+    gloves_confidence: float = 0.0
+    has_vest: bool = False
+    vest_confidence: float = 0.0
+    has_boots: bool = False
+    boots_confidence: float = 0.0
+    has_goggles: bool = False
+    goggles_confidence: float = 0.0
+    detected_ppe: List[str] = []
     missing_ppe: List[str] = []
     status: str
 
@@ -45,11 +54,22 @@ class HelmetItem(BaseModel):
     confidence: float
     matched_worker_id: Optional[int] = None
 
+class PPEItem(BaseModel):
+    label: str
+    box: List[float]
+    confidence: float
+    matched_worker_id: Optional[int] = None
+
 class DiagnosisResponse(BaseModel):
     success: bool
     active_model: str
     workers: List[WorkerItem]
-    helmets: List[HelmetItem]
+    helmets: List[HelmetItem] = []
+    gloves: List[PPEItem] = []
+    vests: List[PPEItem] = []
+    boots: List[PPEItem] = []
+    goggles: List[PPEItem] = []
+    all_ppe: List[PPEItem] = []
     safe_workers_count: int
     total_workers_count: int
     violation_count: int

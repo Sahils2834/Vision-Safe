@@ -1,0 +1,1 @@
+Source documentation: https://docs.ultralytics.com/datasets/detect/construction-ppe/\nSource archive: https://github.com/ultralytics/assets/releases/download/v0.0.0/construction-ppe.zip\nReview current license and attribution terms before use or redistribution.\n

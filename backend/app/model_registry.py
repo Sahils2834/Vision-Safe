@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import time
 from pathlib import Path
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 import torch
 from ultralytics import YOLO
 
@@ -13,7 +13,7 @@ class ModelRegistry:
         self.models_dir = self.root_dir / "backend" / "models"
         self.weights_dir = self.root_dir / "weights"
         
-        self.candidate_keys = ["yolo11n", "yolo12n", "yolo26n", "ensemble"]
+        self.candidate_keys = ["yolo11n", "yolo12n", "yolo26n", "ppe_kit_gloves_yolo11n", "ensemble"]
         self.loaded_models: Dict[str, YOLO] = {}
         self.active_model_key = "yolo11n"
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -25,12 +25,19 @@ class ModelRegistry:
     def _resolve_model_path(self, key: str) -> Optional[Path]:
         """Look for model file across weights/, backend/models/, and root."""
         candidates = [
-            self.weights_dir / f"ppe_{key}.pt",
             self.weights_dir / f"{key}.pt",
+            self.weights_dir / f"ppe_{key}.pt",
+            self.weights_dir / f"ppe_kit_gloves_{key}.pt",
+            self.weights_dir / f"ppe_construction_{key}.pt",
             self.models_dir / f"{key}.pt",
+            self.models_dir / f"{key}",
             self.root_dir / f"{key}.pt",
             self.root_dir / "runs" / f"ppe_{key}" / "weights" / "best.pt",
+            self.root_dir / "runs" / f"ppe_kit_gloves_{key}" / "weights" / "best.pt",
+            self.root_dir / "runs" / f"{key}" / "weights" / "best.pt",
             self.root_dir / "runs" / "detect" / f"ppe_{key}" / "weights" / "best.pt",
+            self.root_dir / "runs" / "detect" / f"ppe_kit_gloves_{key}" / "weights" / "best.pt",
+            self.root_dir / "runs" / "detect" / f"{key}" / "weights" / "best.pt",
         ]
         for c in candidates:
             if c.exists():
@@ -39,7 +46,8 @@ class ModelRegistry:
 
     def initialize_models(self):
         """Pre-load primary models if available."""
-        for key in ["yolo11n", "yolo12n", "yolo26n"]:
+        # Scan for existing weights
+        for key in ["yolo11n", "yolo12n", "yolo26n", "ppe_kit_gloves_yolo11n"]:
             path = self._resolve_model_path(key)
             if path and key not in self.loaded_models:
                 try:
@@ -50,7 +58,7 @@ class ModelRegistry:
                     print(f"Failed to load {key}: {e}")
                     
         # Set active model
-        for candidate in ["yolo11n", "yolo12n", "yolo26n"]:
+        for candidate in ["ppe_kit_gloves_yolo11n", "yolo11n", "yolo12n", "yolo26n"]:
             if candidate in self.loaded_models:
                 self.active_model_key = candidate
                 break
@@ -58,8 +66,7 @@ class ModelRegistry:
     def get_model(self, key: Optional[str] = None) -> Optional[YOLO]:
         target_key = key or self.active_model_key
         if target_key == "ensemble":
-            # For ensemble, return first available model as fallback or primary
-            return self.loaded_models.get("yolo11n") or next(iter(self.loaded_models.values()), None)
+            return self.loaded_models.get("ppe_kit_gloves_yolo11n") or self.loaded_models.get("yolo11n") or next(iter(self.loaded_models.values()), None)
         
         if target_key not in self.loaded_models:
             path = self._resolve_model_path(target_key)
@@ -71,13 +78,13 @@ class ModelRegistry:
         return self.loaded_models.get(target_key)
 
     def select_model(self, key: str) -> bool:
-        if key not in self.candidate_keys:
-            return False
         if key == "ensemble":
             self.active_model_key = "ensemble"
             return True
         model = self.get_model(key)
         if model is not None:
+            if key not in self.candidate_keys:
+                self.candidate_keys.append(key)
             self.active_model_key = key
             return True
         return False
@@ -86,13 +93,14 @@ class ModelRegistry:
         models_info = []
         for key in self.candidate_keys:
             if key == "ensemble":
+                total_classes = max((len(m.names) for m in self.loaded_models.values()), default=6)
                 models_info.append({
                     "id": "ensemble",
                     "name": "Hybrid Multi-Model Ensemble",
                     "loaded": len(self.loaded_models) > 0,
                     "active": self.active_model_key == "ensemble",
                     "description": "Multi-head spatial consensus & confidence fusion",
-                    "classes": 2,
+                    "classes": total_classes,
                     "fps_estimate": 28.5
                 })
                 continue
@@ -100,18 +108,30 @@ class ModelRegistry:
             path = self._resolve_model_path(key)
             is_loaded = key in self.loaded_models
             classes = 0
+            class_names: List[str] = []
             if is_loaded:
                 classes = len(self.loaded_models[key].names)
+                class_names = list(self.loaded_models[key].names.values())
             elif path:
-                classes = 2
+                try:
+                    m = YOLO(str(path))
+                    classes = len(m.names)
+                    class_names = list(m.names.values())
+                except Exception:
+                    classes = 6
+
+            display_name = f"YOLO-{key.upper()}"
+            if "ppe_kit" in key:
+                display_name = "PPE Kit & Gloves (Fine-Tuned)"
 
             models_info.append({
                 "id": key,
-                "name": f"YOLO-{key.upper()}",
+                "name": display_name,
                 "loaded": is_loaded or (path is not None),
                 "active": self.active_model_key == key,
                 "path": str(path.name) if path else None,
                 "classes": classes,
+                "class_names": class_names,
                 "device": self.device,
                 "fps_estimate": 35.0 if "11" in key else (32.0 if "12" in key else 40.0)
             })

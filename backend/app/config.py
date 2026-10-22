@@ -10,8 +10,8 @@ class Settings(BaseSettings):
     # A general YOLO model is included for a usable first-run camera demo. Replace
     # it with the PPE-trained weights produced by training/train.py for helmet PPE.
     model_path: str = "../yolo11n.pt"
-    confidence_threshold: float = 0.35
-    alert_cooldown_seconds: int = 15
+    confidence_threshold: float = 0.20
+    alert_cooldown_seconds: int = 5
     upload_dir: str = "../data/uploads"
     output_dir: str = "../data/outputs"
 

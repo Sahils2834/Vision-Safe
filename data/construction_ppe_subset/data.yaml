@@ -1,0 +1,11 @@
+path: A:/PPE detection system/data/construction_ppe_subset
+train: images/train
+val: images/val
+test: images/test
+names:
+  0: person
+  1: helmet
+  2: gloves
+  3: vest
+  4: boots
+  5: goggles

@@ -1,0 +1,7 @@
+0: person
+1: helmet
+2: safety_belt
+3: hand_gloves
+4: safety_shoes
+5: safety_goggles
+6: protective_vest
